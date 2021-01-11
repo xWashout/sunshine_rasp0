@@ -3,7 +3,7 @@ Add new file sunshine.service with following script in path: /etc/systemd/
 Then in console 'systemctl enable sunshine' and 'systemctl start sunshine'
 
 [Unit]
-Description=Dummy Service
+Description=Sunshine Service
 After=multi-user.target
 Conflicts=getty@tty1.service
 
