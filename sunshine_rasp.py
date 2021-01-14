@@ -1,5 +1,4 @@
 import paho.mqtt.client as mqtt
-import threading
 import time
 import board
 import busio
@@ -11,11 +10,11 @@ mutex = Lock()
 broker_address="broker.hivemq.com"
 port = 1883
 
-## Measurement Frequency (seconds) default = 10s ##
-measFreqTemp = 3
-measFreqHum = 5
-measFreqTvoc = 7
-measFreqCo2 = 11
+## Default Measurements Frequency (seconds) ##
+measFreqTemp = 10
+measFreqHum = 20
+measFreqTvoc = 30
+measFreqCo2 = 40
 
 ## COMMON FOR MQTT ##
 def onMessage(client, userdata, message):
@@ -32,6 +31,7 @@ def onConnect(client, userdata, flags, rc):  # The callback for when the client 
     client.subscribe("rasp0FreqHum") 
     client.subscribe("rasp0FreqTvoc") 
     client.subscribe("rasp0FreqCo2") 
+    client.subscribe("microcontrollerInit")
 
 def onLog(client, userdata, level, buf):
     print("log: ",buf)
@@ -49,23 +49,29 @@ def printCurrentFreqs():
 
 def topicVariableMapper(topic, value):
     mutex.acquire()
+    global measFreqTemp
+    global measFreqHum
+    global measFreqTvoc
+    global measFreqCo2
+
     try:
         if topic == "rasp0FreqTemp":
             print(value)
-            global measFreqTemp
             measFreqTemp = int(value)
         elif topic == "rasp0FreqHum":
             print(value)
-            global measFreqHum
             measFreqHum = int(value)
         elif topic == "rasp0FreqTvoc":
             print(value)
-            global measFreqTvoc
             measFreqTvoc = int(value)
         elif topic == "rasp0FreqCo2":
-            global measFreqCo2
             measFreqCo2 = int(value)
             print(value)
+        elif topic == "microcontrollerInit":
+            client.publish("rasp0FreqTemp", measFreqTemp)
+            client.publish("rasp0FreqHum", measFreqHum)
+            client.publish("rasp0FreqTvoc", measFreqTvoc)
+            client.publish("rasp0FreqCo2", measFreqCo2)
         else:
             print("Invalid topic")
     finally:
@@ -75,7 +81,7 @@ def sendTemperature():
     while True:
         temp = bme280.temperature
         if temp > 0:
-            client.publish("rasp0_temperature", temp)
+            client.publish("rasp0Temperature", temp)
 
         mutex.acquire()
         try:
@@ -91,7 +97,7 @@ def sendHumidity():
     while True:
         hum = bme280.relative_humidity 
         if hum > 0:
-            client.publish("rasp0_humidity", hum)
+            client.publish("rasp0Humidity", hum)
 
         mutex.acquire()
         try:
@@ -107,8 +113,8 @@ def sendTvoc():
     while True:
         if ccs811.data_ready:
             tvoc = ccs811.tvoc
-        #   if tvoc > 0:
-            client.publish("rasp0_tvoc", tvoc)
+            if tvoc > 0:
+                client.publish("rasp0Tvoc", tvoc)
         else:
             print("ERROR CCS811 don't ready for read measurement")
         
@@ -126,8 +132,8 @@ def sendCo2():
     while True:
         if ccs811.data_ready:
             co2 = ccs811.eco2
-        #   if tvoc > 0:
-            client.publish("rasp0_co2", co2)
+            if co2 > 0:
+                client.publish("rasp0Co2", co2)
         else:
             print("ERROR CCS811 don't ready for read measurement")
 
@@ -167,10 +173,10 @@ client.connect(broker_address, port)
 client.loop_start()
 
 ## THREADS INIT ##
-tempSenderThread = threading.Thread(target=sendTemperature)
-humSenderThread = threading.Thread(target=sendHumidity)
-tvocSenderThread = threading.Thread(target=sendTvoc)
-co2SenderThread = threading.Thread(target=sendCo2)
+tempSenderThread = Thread(target=sendTemperature)
+humSenderThread = Thread(target=sendHumidity)
+tvocSenderThread = Thread(target=sendTvoc)
+co2SenderThread = Thread(target=sendCo2)
 
 tempSenderThread.daemon = True
 humSenderThread.daemon = True
