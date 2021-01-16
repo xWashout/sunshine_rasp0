@@ -13,8 +13,8 @@ port = 1883
 ## Default Measurements Frequency (seconds) ##
 measFreqTemp = 10
 measFreqHum = 20
-measFreqTvoc = 30
-measFreqCo2 = 40
+measFreqTvoc = 3
+measFreqCo2 = 10
 
 ## COMMON FOR MQTT ##
 def onMessage(client, userdata, message):
@@ -113,7 +113,7 @@ def sendTvoc():
     while True:
         if ccs811.data_ready:
             tvoc = ccs811.tvoc
-            if tvoc > 0:
+            if tvoc > 0 and tvoc < 1187:
                 client.publish("rasp0Tvoc", tvoc)
         else:
             print("ERROR CCS811 don't ready for read measurement")
@@ -132,7 +132,7 @@ def sendCo2():
     while True:
         if ccs811.data_ready:
             co2 = ccs811.eco2
-            if co2 > 0:
+            if co2 > 0 and co2 < 8192:
                 client.publish("rasp0Co2", co2)
         else:
             print("ERROR CCS811 don't ready for read measurement")
